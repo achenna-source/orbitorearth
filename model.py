@@ -25,11 +25,13 @@ cancels in the differential.
 
 INTEGRITY NOTE
 --------------
-The numeric defaults in params.yaml are PLACEHOLDERS, reverse-engineered to
-reproduce the preliminary envelope table in the scoping brief, for self-
-consistency testing only. They are NOT sourced data. Every parameter with
-status "placeholder" must be replaced by a cited value (and low/high range)
-before any number is reported in the paper. No invented value is ever presented
+Sourcing in progress. As of now, launch_factor_* (traced), system_mass_per_kw
+(radiator component) and gpu_lifetime_years carry SOURCED values; pue, utilization,
+orbital_embodied_per_kw and dc_construction_avoided_per_kw remain PLACEHOLDERS.
+The `--selfcheck` regression is decoupled (it uses fixed reference inputs, not
+params.yaml) so it verifies the FORMULA, not the sourced values. Every parameter
+with status "placeholder" must be replaced by a cited value (and low/high range)
+before its number is reported in the paper. No invented value is ever presented
 as real.
 """
 
@@ -76,9 +78,19 @@ def load_settings(path: str | Path = "params.yaml") -> dict:
 
 
 def resolve(params: dict[str, Param], accounting: str) -> dict[str, float]:
-    """Flatten to point values; select the launch factor for the chosen accounting."""
+    """Flatten to point values; select the launch factor for the chosen accounting.
+
+    accounting in {combustion_only, embodied_included, embodied_forced}.
+    'embodied_forced' multiplies the embodied launch factor by the CO2e forcing
+    multiplier (high-altitude black-carbon + alumina radiative forcing).
+    """
     p = {k: v.value for k, v in params.items()}
-    p["launch_emission_factor"] = p[f"launch_factor_{accounting}"]
+    if accounting == "embodied_forced":
+        p["launch_emission_factor"] = (
+            p["launch_factor_embodied_included"] * p["forcing_multiplier"]
+        )
+    else:
+        p["launch_emission_factor"] = p[f"launch_factor_{accounting}"]
     return p
 
 
@@ -142,7 +154,10 @@ def monte_carlo_break_even(
     """Propagate input ranges to a distribution of the break-even intensity I*."""
     rng = np.random.default_rng(seed)
     d = {k: _triangular(rng, p, n) for k, p in params.items()}
-    lf = d[f"launch_factor_{accounting}"]
+    if accounting == "embodied_forced":
+        lf = d["launch_factor_embodied_included"] * d["forcing_multiplier"]
+    else:
+        lf = d[f"launch_factor_{accounting}"]
     e = d["pue"] * d["hours_per_year"] * d["gpu_lifetime_years"] * d["utilization"]
     orbit = (
         d["system_mass_per_kw"] * lf
