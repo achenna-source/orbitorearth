@@ -33,15 +33,17 @@ parameters:
 
   # --- terrestrial baseline ------------------------------------------------
   gpu_lifetime_years:
-    value: 3.0
+    value: 5.0
     low: 2.0
-    high: 5.0
+    high: 7.0
     unit: year
-    # Altitude-dependent: radiation rises with altitude. Suncatcher radiation-tested
-    # its TPUs for ~650 km / 5-year life; 1600 km is harsher (-> shorter life or more
-    # shielding mass). Couples to reference_orbit.
-    source: "[A SOURCER] (Suncatcher 5-year design point at ~650 km as anchor)"
-    status: placeholder
+    # Itself an optimist/pessimist axis. Run-to-EOL design point: Suncatcher
+    # radiation-tested TPUs for a 5-year mission at ~650 km SSO. Lower bound 2 =
+    # terrestrial GPU refresh cadence (2-3 y, obsolescence) -- but in orbit a refresh
+    # means a new launch (no cascade/recycling). Upper 7 = satellite-class hardware
+    # life if run to radiation-limited EOL. Altitude-coupled (1600 km harsher).
+    source: "Suncatcher 5-year mission life; GPU refresh cadence 2-3 y [industry]"
+    status: sourced
 
   pue:
     value: 1.2
@@ -73,13 +75,15 @@ parameters:
     low: 10.0
     high: 150.0
     unit: kg/kW
-    # NOT a single uncertain value: a FUNCTION of compute power density and
-    # radiator design. Low end ~10 = project system claims (SpaceX 100 kW/tonne;
-    # tether node 5 kg/kW). High end ~150 = radiator-dominated for dense GPU heat
-    # (T^4 thermal wall). The 10-vs-150 gap is itself a paper result: at what power
-    # density does orbit stop winning. Treat as regime, not uniform noise.
-    source: "project claims 10 kg/kW [SpaceX filing]; radiator-dominated upper bound [thermal wall, to source]"
-    status: partial
+    # A FUNCTION of compute power density and radiator design, not uniform noise.
+    # Radiator component (now sourced): conventional deployable ~12 kg/m2 rejecting
+    # 100-350 W/m2 -> ~14-34 kg/kW (up to ~120 kg/kW at low rejection temperature);
+    # advanced radiators 0.67-5.5 kg/kW (rotating-film, magnetic-droplet).
+    # Low 10 = aggressive whole-system claims (SpaceX 100 kW/tonne; tether 5 kg/kW)
+    # with advanced radiator. High 150 = conventional radiator + bus + solar +
+    # structure for dense GPU heat. The 10-vs-150 gap is itself a paper result.
+    source: "radiator 5.5-34 kg/kW [Wikipedia spacecraft thermal control; advanced radiator review]; system claims 10 kg/kW [SpaceX]"
+    status: sourced
 
   launch_factor_combustion_only:
     value: 28.0

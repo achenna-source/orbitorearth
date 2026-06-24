@@ -1,169 +1,251 @@
 """
-OrbitOrEarth - parameter sweep and tornado sensitivity.
+OrbitOrEarth - figure generation
+================================
+High-quality, modern figures for the decision paper, on sourced inputs.
 
-ILLUSTRATIVE ONLY. This script runs on the PLACEHOLDER values in params.yaml
-(several reverse-engineered to reproduce the brief). Every output is watermarked
-and must NOT be reported as a result until params.yaml is sourced.
+Figure 1 (tornado):  lever ranking by the swing each parameter induces on the
+                     break-even grid intensity I*.
+Figure 2 (map):      the C1 spine. Break-even contours for the two launch-
+                     accounting choices (combustion-only vs embodied) vs system
+                     mass. The band between them is the region where the verdict
+                     depends ONLY on the accounting choice -- the paper's thesis.
 
-What is informative here vs not:
-  - the TORNADO ranking reflects the [low, high] ranges you assign (a real input
-    judgement) -> use it to prioritise sourcing, coarsely;
-  - the break-even MAP position is placeholder-driven (launch factors are fitted
-    to the brief) -> use it only to validate the figure DESIGN, not the numbers.
+Run:  python sweep.py
 """
-
 from __future__ import annotations
 
-import csv
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 import model as m
 
-FIG = Path("figures")
-TAB = Path("tables")
-FIG.mkdir(exist_ok=True)
-TAB.mkdir(exist_ok=True)
+FIGDIR = Path("figures")
+FIGDIR.mkdir(exist_ok=True)
 
-WATERMARK = "ILLUSTRATIVE - placeholder inputs, not sourced"
-REFERENCE_GRIDS = {"clean": 0.05, "US avg": 0.37, "gas": 0.50}  # kgCO2/kWh
+# --------------------------------------------------------------------------
+# Modern style
+# --------------------------------------------------------------------------
+INK      = "#1A2A3A"   # near-black slate for text/axes
+SUBINK   = "#5B6B7B"   # muted grey for secondary text
+ORBIT    = "#2A9D8F"   # teal  -> orbit wins
+GROUND   = "#E76F51"   # coral -> ground wins
+DEPEND   = "#E9C46A"   # amber -> depends on accounting choice
+BAR      = "#3D6B8E"   # muted steel blue for bars
+BARNEG   = "#9DB4C4"   # light steel for the unfavourable side
+GRIDCOL  = "#EAEDF0"
+REFCOL   = "#8A97A4"
 
 
-def _add_watermark(ax) -> None:
-    ax.text(
-        0.5, 0.5, WATERMARK, transform=ax.transAxes, fontsize=18,
-        color="red", alpha=0.18, ha="center", va="center", rotation=20,
-        weight="bold", zorder=10,
-    )
+def set_style() -> None:
+    mpl.rcParams.update({
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "font.family": "DejaVu Sans",
+        "font.size": 11,
+        "text.color": INK,
+        "axes.titlesize": 15,
+        "axes.titleweight": "bold",
+        "axes.titlecolor": INK,
+        "axes.titlepad": 16,
+        "axes.labelsize": 12,
+        "axes.labelcolor": INK,
+        "axes.labelpad": 9,
+        "axes.edgecolor": "#C7CFD6",
+        "axes.linewidth": 1.0,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.grid": True,
+        "axes.axisbelow": True,
+        "grid.color": GRIDCOL,
+        "grid.linewidth": 1.0,
+        "xtick.color": SUBINK,
+        "ytick.color": SUBINK,
+        "xtick.labelsize": 10.5,
+        "ytick.labelsize": 10.5,
+        "xtick.major.size": 0,
+        "ytick.major.size": 0,
+        "legend.frameon": False,
+        "legend.fontsize": 10.5,
+        "figure.facecolor": "white",
+        "axes.facecolor": "white",
+    })
+
+
+# Reference grids, kgCO2/kWh (illustrative anchors)
+REF_GRIDS = [
+    ("Clean grid", 0.05),
+    ("US average", 0.37),
+    ("Gas",        0.50),
+]
+
+STATUS_NOTE = ("Levers sourced: launch factor, system mass, GPU lifetime.  "
+               "PUE and utilization still preliminary.")
+
+
+def _base(params):
+    return {k: v.value for k, v in params.items()}
 
 
 # --------------------------------------------------------------------------
-# Tornado: one-at-a-time sensitivity of I* to each parameter's [low, high]
+# Figure 1 - tornado
 # --------------------------------------------------------------------------
-def tornado(params, accounting: str = "embodied_included"):
+def tornado(params, accounting: str = "embodied_included") -> Path:
     base = m.resolve(params, accounting)
-    base_istar = m.break_even_intensity(base)
-    active_lf = f"launch_factor_{accounting}"
+    base_I = m.break_even_intensity(base)
 
-    varied = [
-        "system_mass_per_kw",
-        active_lf,
-        "gpu_lifetime_years",
-        "pue",
-        "utilization",
-        "orbital_embodied_per_kw",
-        "dc_construction_avoided_per_kw",
+    levers = [
+        ("system_mass_per_kw",     "System mass / kW"),
+        ("launch_factor_" + accounting, "Launch emission factor"),
+        ("gpu_lifetime_years",     "GPU lifetime"),
+        ("utilization",            "Utilization"),
+        ("pue",                    "Terrestrial PUE"),
     ]
 
     rows = []
-    for name in varied:
-        p = params[name]
+    for key, label in levers:
+        p = params[key]
         lo_p, hi_p = dict(base), dict(base)
-        key = "launch_emission_factor" if name == active_lf else name
-        lo_p[key], hi_p[key] = p.low, p.high
-        lo = m.break_even_intensity(lo_p)
-        hi = m.break_even_intensity(hi_p)
-        rows.append((name, lo, hi, abs(hi - lo)))
+        lo_p[key] = p.low
+        hi_p[key] = p.high
+        if key.startswith("launch_factor_"):
+            lo_p["launch_emission_factor"] = p.low
+            hi_p["launch_emission_factor"] = p.high
+        I_lo = m.break_even_intensity(lo_p)
+        I_hi = m.break_even_intensity(hi_p)
+        rows.append((label, I_lo, I_hi, abs(I_hi - I_lo)))
 
-    rows.sort(key=lambda r: r[3], reverse=True)
-    return base_istar, rows
+    rows.sort(key=lambda r: r[3])  # smallest swing at bottom
 
+    fig, ax = plt.subplots(figsize=(9.2, 5.4))
+    y = np.arange(len(rows))
 
-def plot_tornado(base_istar, rows, path: Path) -> None:
-    labels = [r[0] for r in rows][::-1]   # widest at top
-    los = np.array([r[1] for r in rows][::-1])
-    his = np.array([r[2] for r in rows][::-1])
-    left = np.minimum(los, his)
-    width = np.abs(his - los)
+    for i, (label, I_lo, I_hi, swing) in enumerate(rows):
+        left, right = min(I_lo, I_hi), max(I_lo, I_hi)
+        # favourable (lower I*) half in strong colour, unfavourable in light
+        ax.barh(i, base_I - left, left=left, height=0.62,
+                color=BAR, edgecolor="white", linewidth=1.2, zorder=3)
+        ax.barh(i, right - base_I, left=base_I, height=0.62,
+                color=BARNEG, edgecolor="white", linewidth=1.2, zorder=3)
+        ax.text(right + 0.012, i, f"\u0394 {swing:.2f}", va="center", ha="left",
+                fontsize=10, color=SUBINK, zorder=4)
 
-    fig, ax = plt.subplots(figsize=(9, 5))
-    y = np.arange(len(labels))
-    ax.barh(y, width, left=left, color="#3b6ea5", alpha=0.85, zorder=3)
-    ax.axvline(base_istar, color="black", lw=1.2, ls="--", zorder=4,
-               label=f"base I* = {base_istar:.3f}")
+    ax.axvline(base_I, color=INK, linewidth=1.6, zorder=5)
+    ax.text(base_I, len(rows) - 0.35, f"  base I* = {base_I:.2f}",
+            ha="left", va="bottom", fontsize=10.5, color=INK, fontweight="bold")
+
     ax.set_yticks(y)
-    ax.set_yticklabels(labels)
-    ax.set_xlabel("break-even grid intensity I*  [kgCO2/kWh]")
-    ax.set_title("Tornado: sensitivity of the break-even intensity (embodied accounting)")
-    ax.legend(loc="lower right")
-    ax.grid(axis="x", alpha=0.3, zorder=0)
-    _add_watermark(ax)
-    fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    ax.set_yticklabels([r[0] for r in rows])
+    ax.set_xlabel("Break-even grid intensity  I*  (kgCO\u2082 / kWh)")
+    ax.set_title("Which assumptions move the orbital break-even most",
+                 loc="left")
+    ax.set_xlim(left=0)
+    ax.margins(y=0.10)
+    ax.grid(axis="y", visible=False)
+
+    legend = [
+        Patch(facecolor=BAR, label="Toward orbit (lower I*)"),
+        Patch(facecolor=BARNEG, label="Toward ground (higher I*)"),
+    ]
+    ax.legend(handles=legend, loc="lower right", ncol=1)
+
+    fig.text(0.005, -0.02, STATUS_NOTE + f"   Accounting: {accounting.replace('_', ' ')}.",
+             fontsize=8.5, color=SUBINK, ha="left")
+
+    out = FIGDIR / "tornado.png"
+    fig.savefig(out)
     plt.close(fig)
-
-
-def write_tornado_csv(base_istar, rows, path: Path) -> None:
-    with path.open("w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["parameter", "I*_at_low", "I*_at_high", "swing", "base_I*"])
-        for name, lo, hi, swing in rows:
-            w.writerow([name, f"{lo:.4f}", f"{hi:.4f}", f"{swing:.4f}", f"{base_istar:.4f}"])
-
-
-# --------------------------------------------------------------------------
-# Break-even contour: mass (y) vs threshold grid intensity I*(mass) (x)
-# --------------------------------------------------------------------------
-def contour(params, masses, accounting: str):
-    base = m.resolve(params, accounting)
-    out = []
-    for mass in masses:
-        p = dict(base)
-        p["system_mass_per_kw"] = float(mass)
-        out.append((float(mass), m.break_even_intensity(p)))
     return out
 
 
-def plot_break_even_map(params, path: Path) -> None:
-    masses = np.linspace(40, 160, 60)
-    fig, ax = plt.subplots(figsize=(8, 5.5))
-
-    for acc, color in [("combustion_only", "#d08c34"), ("embodied_included", "#3b6ea5")]:
-        pts = contour(params, masses, acc)
-        x = [istar for _, istar in pts]
-        y = [mass for mass, _ in pts]
-        ax.plot(x, y, color=color, lw=2.2, label=f"break-even ({acc})")
-
-    for name, g in REFERENCE_GRIDS.items():
-        ax.axvline(g, color="grey", ls=":", lw=1.2)
-        ax.text(g, 158, f" {name}\n {g}", color="grey", fontsize=8, va="top")
-
-    ax.set_xlabel("displaced grid carbon intensity  [kgCO2/kWh]")
-    ax.set_ylabel("launched system mass  [kg/kW]")
-    ax.set_title("Break-even map (DESIGN CHECK)\norbit wins to the right of each curve")
-    ax.set_xlim(0, 1.0)
-    ax.set_ylim(40, 160)
-    ax.legend(loc="lower right")
-    ax.grid(alpha=0.3)
-    _add_watermark(ax)
-    fig.tight_layout()
-    fig.savefig(path, dpi=200)
-    plt.close(fig)
-
-
 # --------------------------------------------------------------------------
-def main() -> None:
+# Figure 2 - break-even map (the C1 spine)
+# --------------------------------------------------------------------------
+def break_even_map(params) -> Path:
+    base = _base(params)
+    masses = np.linspace(10, 150, 240)
+
+    def curve(accounting):
+        f = base[f"launch_factor_{accounting}"]
+        out = []
+        for M in masses:
+            p = dict(base)
+            p["system_mass_per_kw"] = M
+            p["launch_emission_factor"] = f
+            out.append(m.break_even_intensity(p))
+        return np.array(out)
+
+    I_comb = curve("combustion_only")   # left  (optimistic accounting)
+    I_emb  = curve("embodied_included") # right (pessimistic accounting)
+
+    x_max = max(0.8, float(I_emb.max()) * 1.05)
+    fig, ax = plt.subplots(figsize=(9.6, 6.0))
+
+    # Region shading: ground-wins (left of combustion curve),
+    # accounting-dependent (between curves), orbit-wins (right of embodied curve)
+    ax.fill_betweenx(masses, 0, I_comb, color=GROUND, alpha=0.16, zorder=1)
+    ax.fill_betweenx(masses, I_comb, I_emb, color=DEPEND, alpha=0.30, zorder=1)
+    ax.fill_betweenx(masses, I_emb, x_max, color=ORBIT, alpha=0.16, zorder=1)
+
+    # Break-even contours
+    ax.plot(I_comb, masses, color=GROUND, linewidth=2.6, zorder=4,
+            solid_capstyle="round")
+    ax.plot(I_emb, masses, color=ORBIT, linewidth=2.6, zorder=4,
+            solid_capstyle="round")
+
+    # Reference grids
+    for name, g in REF_GRIDS:
+        if g <= x_max:
+            ax.axvline(g, color=REFCOL, linewidth=1.2, linestyle=(0, (4, 3)),
+                       zorder=3)
+            ax.text(g, 152.5, name, rotation=0, ha="center", va="bottom",
+                    fontsize=9.5, color=SUBINK)
+
+    # Region labels
+    ax.text(x_max * 0.985, 130, "Orbit wins\n(either accounting)", ha="right",
+            va="top", fontsize=11.5, color="#1F7A6E", fontweight="bold", zorder=5)
+    ax.text(0.030, 100, "Ground wins", ha="center", va="center", rotation=68,
+            rotation_mode="anchor", fontsize=10.5, color="#C0512F",
+            fontweight="bold", zorder=5)
+    band_x = float((np.interp(128, masses, I_comb) + np.interp(128, masses, I_emb)) / 2)
+    ax.text(band_x, 122, "depends on\nthe accounting", ha="center", va="center",
+            fontsize=9.5, color="#9A7B1F", fontweight="bold", zorder=6)
+
+    ax.set_xlabel("Displaced grid carbon intensity  (kgCO\u2082 / kWh)")
+    ax.set_ylabel("Launched system mass  (kg / kW IT)")
+    ax.set_title("When does orbit beat the ground? The accounting choice is the pivot",
+                 loc="left")
+    ax.set_xlim(0, x_max)
+    ax.set_ylim(10, 150)
+
+    legend = [
+        Line2D([0], [0], color=GROUND, lw=2.6, label="Break-even, combustion-only (optimistic)"),
+        Line2D([0], [0], color=ORBIT, lw=2.6, label="Break-even, embodied launch (pessimistic)"),
+        Patch(facecolor=DEPEND, alpha=0.30, label="Accounting-dependent zone"),
+    ]
+    ax.legend(handles=legend, loc="upper center", bbox_to_anchor=(0.5, -0.12),
+              ncol=3, columnspacing=1.4, handlelength=1.8)
+
+    fig.text(0.005, -0.085, STATUS_NOTE, fontsize=8.5, color=SUBINK, ha="left")
+
+    out = FIGDIR / "break_even_map.png"
+    fig.savefig(out)
+    plt.close(fig)
+    return out
+
+
+def main():
+    set_style()
     params = m.load_params("params.yaml")
-    settings = m.load_settings("params.yaml")
-    accounting = settings.get("launch_accounting", "embodied_included")
-
-    base_istar, rows = tornado(params, accounting)
-    plot_tornado(base_istar, rows, FIG / "tornado.png")
-    write_tornado_csv(base_istar, rows, TAB / "tornado.csv")
-    plot_break_even_map(params, FIG / "break_even_map.png")
-
-    print(f"Base I* = {base_istar:.3f} kgCO2/kWh ({accounting} accounting)\n")
-    print("Lever ranking (widest swing in I* first):")
-    print(f"  {'parameter':<34} {'I*@low':>8} {'I*@high':>8} {'swing':>8}")
-    for name, lo, hi, swing in rows:
-        print(f"  {name:<34} {lo:>8.3f} {hi:>8.3f} {swing:>8.3f}")
-    print("\nWrote figures/tornado.png, figures/break_even_map.png, tables/tornado.csv")
-    print("ILLUSTRATIVE: placeholder inputs. Do not report. See params.yaml.")
+    t = tornado(params)
+    bem = break_even_map(params)
+    print(f"wrote {t}")
+    print(f"wrote {bem}")
 
 
 if __name__ == "__main__":
