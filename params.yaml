@@ -1,0 +1,117 @@
+# OrbitOrEarth - parameters
+# ==========================
+# Basis: per kW of IT load, integrated over the GPU lifetime.
+#
+# !!! DEFAULTS ARE PLACEHOLDERS !!!
+# The default values below are reverse-engineered so that the model reproduces
+# the PRELIMINARY envelope table in the scoping brief (self-consistency check
+# only). They are NOT sourced data. Before reporting ANY result in the paper,
+# replace every entry whose `status` is `placeholder` with a cited value and a
+# justified [low, high] range, then set `status: sourced` and fill `source`.
+# Never present an invented number as real.
+
+settings:
+  launch_accounting: embodied_included   # embodied_included | combustion_only
+  monte_carlo_samples: 100000
+  seed: 0
+
+parameters:
+
+  # --- terrestrial baseline ------------------------------------------------
+  gpu_lifetime_years:
+    value: 3.0
+    low: 2.0
+    high: 5.0
+    unit: year
+    source: "[A SOURCER]"
+    status: placeholder
+
+  pue:
+    value: 1.2
+    low: 1.1
+    high: 1.5
+    unit: dimensionless
+    source: "[A SOURCER]"
+    status: placeholder
+
+  hours_per_year:
+    value: 8766.0
+    low: 8766.0
+    high: 8766.0
+    unit: hour/year
+    source: "365.25 d x 24 h (definition)"
+    status: sourced
+
+  utilization:
+    value: 1.0
+    low: 0.6
+    high: 1.0
+    unit: dimensionless
+    source: "[A SOURCER]"
+    status: placeholder
+
+  # --- orbital option ------------------------------------------------------
+  system_mass_per_kw:
+    value: 100.0
+    low: 50.0
+    high: 150.0
+    unit: kg/kW
+    # Radiator-dominated, set by the T^4 thermal wall. IMPORTED as an input,
+    # not modelled here (brief rule: import, do not claim).
+    source: "[A SOURCER]"
+    status: placeholder
+
+  launch_factor_combustion_only:
+    value: 37.9
+    low: 15.0
+    high: 50.0
+    unit: kgCO2/kg
+    # Reverse-engineered to match the brief table. Replace with a cited
+    # combustion-only launch LCA value and range.
+    source: "[A SOURCER]"
+    status: placeholder
+
+  launch_factor_embodied_included:
+    value: 185.0
+    low: 100.0
+    high: 300.0
+    unit: kgCO2/kg
+    # Reverse-engineered to match the brief table. Replace with a cited
+    # cradle-to-launch (embodied) value and range.
+    source: "[A SOURCER]"
+    status: placeholder
+
+  orbital_embodied_per_kw:
+    value: 0.0
+    low: 0.0
+    high: 0.0
+    unit: kgCO2/kW
+    # Bus electronics + solar array + radiator manufacturing, per kW.
+    source: "[A SOURCER]"
+    status: placeholder
+
+  dc_construction_avoided_per_kw:
+    value: 0.0
+    low: 0.0
+    high: 0.0
+    unit: kgCO2/kW
+    # Avoided terrestrial data-center construction (second-order term).
+    source: "[A SOURCER]"
+    status: placeholder
+
+  # --- water axis ----------------------------------------------------------
+  water_intensity_grid_gal_per_kwh:
+    value: 0.30
+    low: 0.10
+    high: 0.45
+    unit: gallon/kWh
+    source: "[A SOURCER]"
+    status: placeholder
+
+  cooling_water_gal_per_kwh:
+    value: 0.10
+    low: 0.00
+    high: 0.20
+    unit: gallon/kWh
+    source: "[A SOURCER]"
+    status: placeholder
