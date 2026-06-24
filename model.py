@@ -164,7 +164,13 @@ def summarize(samples: np.ndarray, lo: float = 5, hi: float = 95) -> dict[str, f
 # --------------------------------------------------------------------------
 # Self-consistency vs the scoping brief's preliminary envelope
 # --------------------------------------------------------------------------
-# Brief table (GPU lifetime = 3 years), kgCO2/kWh:
+# Equation regression. This verifies the break-even FORMULA against the brief's
+# preliminary envelope (0.06 / 0.12 / 0.59 / 0.88). It uses FIXED reference inputs
+# below, NOT the values in params.yaml, so that sourcing real parameters (which
+# produce different, real results) does not break the formula test.
+REGRESSION_FACTORS = {"combustion_only": 37.9, "embodied_included": 185.0}
+REGRESSION_FIXED = dict(pue=1.2, hours_per_year=8766.0, utilization=1.0,
+                        orbital_embodied_per_kw=0.0, dc_construction_avoided_per_kw=0.0)
 BRIEF_TABLE = [
     dict(mass=50, accounting="combustion_only", expected=0.06),
     dict(mass=100, accounting="combustion_only", expected=0.12),
@@ -173,13 +179,14 @@ BRIEF_TABLE = [
 ]
 
 
-def selfcheck(params: dict[str, Param], verbose: bool = True, tol: float = 0.01) -> bool:
-    base = {k: v.value for k, v in params.items()}
+def selfcheck(verbose: bool = True, tol: float = 0.01) -> bool:
+    """Regression test of the break-even formula against the brief's envelope,
+    using fixed reference inputs (independent of sourced params.yaml values)."""
     ok = True
     for row in BRIEF_TABLE:
-        p = dict(base)
+        p = dict(REGRESSION_FIXED)
         p["system_mass_per_kw"] = float(row["mass"])
-        p["launch_emission_factor"] = base[f"launch_factor_{row['accounting']}"]
+        p["launch_emission_factor"] = REGRESSION_FACTORS[row["accounting"]]
         p["gpu_lifetime_years"] = 3.0
         got = break_even_intensity(p)
         close = abs(got - row["expected"]) <= tol
@@ -213,8 +220,8 @@ def main() -> None:
     accounting = settings.get("launch_accounting", "embodied_included")
 
     if args.selfcheck:
-        print("Self-consistency check vs the scoping brief (GPU lifetime = 3 y):")
-        ok = selfcheck(params)
+        print("Break-even formula regression vs the brief envelope (GPU lifetime = 3 y):")
+        ok = selfcheck()
         print("PASS" if ok else "FAIL")
         unsourced = [k for k, p in params.items() if p.status != "sourced"]
         print(f"\n{len(unsourced)} parameter(s) still need a source:")

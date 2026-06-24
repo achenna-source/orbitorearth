@@ -15,6 +15,20 @@ settings:
   monte_carlo_samples: 100000
   seed: 0
 
+# Reference orbit (the structural keystone; several parameters depend on it).
+reference_orbit:
+  regime: "dawn-dusk sun-synchronous LEO"
+  nominal_altitude_km: 650          # Suncatcher, the most concrete program
+  altitude_sensitivity_km: [500, 1600]   # 500 km (analyses) ; 1600 km (tether, high end)
+  # Sourced: Suncatcher ~650 km dawn-dusk SSO; SpaceX/Starcloud SSO; ~500 km analysis
+  # (arXiv 2603.28829); tether ~1600 km DDSS (arXiv 2512.09044).
+  rationale: "continuous solar (no eclipse) -> operational carbon ~0"
+  caveats:
+    - "operational ~0 holds for DAWN-DUSK SSO specifically, NOT generic SSO (eclipse-bearing)."
+    - "higher altitude -> more delta-V -> more launch CO2 AND worse black-carbon forcing (orbit-metric coupling)."
+    - "altitude also drives radiation -> GPU lifetime / shielding mass."
+    - "Three-Body/Star-Compute is Earth-observation (likely classic 10:30 SSO with eclipses): treat as the born-in-orbit EO example, not a dawn-dusk convergence point."
+
 parameters:
 
   # --- terrestrial baseline ------------------------------------------------
@@ -23,7 +37,10 @@ parameters:
     low: 2.0
     high: 5.0
     unit: year
-    source: "[A SOURCER]"
+    # Altitude-dependent: radiation rises with altitude. Suncatcher radiation-tested
+    # its TPUs for ~650 km / 5-year life; 1600 km is harsher (-> shorter life or more
+    # shielding mass). Couples to reference_orbit.
+    source: "[A SOURCER] (Suncatcher 5-year design point at ~650 km as anchor)"
     status: placeholder
 
   pue:
@@ -52,34 +69,45 @@ parameters:
 
   # --- orbital option ------------------------------------------------------
   system_mass_per_kw:
-    value: 100.0
-    low: 50.0
+    value: 80.0
+    low: 10.0
     high: 150.0
     unit: kg/kW
-    # Radiator-dominated, set by the T^4 thermal wall. IMPORTED as an input,
-    # not modelled here (brief rule: import, do not claim).
-    source: "[A SOURCER]"
-    status: placeholder
+    # NOT a single uncertain value: a FUNCTION of compute power density and
+    # radiator design. Low end ~10 = project system claims (SpaceX 100 kW/tonne;
+    # tether node 5 kg/kW). High end ~150 = radiator-dominated for dense GPU heat
+    # (T^4 thermal wall). The 10-vs-150 gap is itself a paper result: at what power
+    # density does orbit stop winning. Treat as regime, not uniform noise.
+    source: "project claims 10 kg/kW [SpaceX filing]; radiator-dominated upper bound [thermal wall, to source]"
+    status: partial
 
   launch_factor_combustion_only:
-    value: 37.9
-    low: 15.0
-    high: 50.0
+    value: 28.0
+    low: 17.0
+    high: 63.0
     unit: kgCO2/kg
-    # Reverse-engineered to match the brief table. Replace with a cited
-    # combustion-only launch LCA value and range.
-    source: "[A SOURCER]"
-    status: placeholder
+    # DERIVED (traced), Falcon-class to dawn-dusk SSO ~650 km nominal.
+    # Emission factor 3.15 kgCO2/kg kerosene (arXiv 2504.15291).
+    # Method A: ~387 t CO2/launch Falcon 9 to LEO / ~22.8 t payload = ~17;
+    #   x SSO-650km payload penalty (~1.4) -> ~24.
+    # Method B: 63 kgCO2/kg at 1600 km (tether arXiv 2512.09044) scaled down by
+    #   lower delta-V to ~30-40. Central ~28; low 17 (500 km), high 63 (1600 km).
+    source: "derived; 3.15 kgCO2/kg kerosene [arXiv 2504.15291]; cross-check FAA Falcon 9 + tether [arXiv 2512.09044]"
+    status: sourced
 
   launch_factor_embodied_included:
-    value: 185.0
-    low: 100.0
-    high: 300.0
+    value: 70.0
+    low: 40.0
+    high: 250.0
     unit: kgCO2/kg
-    # Reverse-engineered to match the brief table. Replace with a cited
-    # cradle-to-launch (embodied) value and range.
-    source: "[A SOURCER]"
-    status: placeholder
+    # DERIVED build-up (raw CO2, production-inclusive; high-altitude FORCING is a
+    # SEPARATE metric axis, not folded in here).
+    # = combustion + production share. LCA per-launch is ~2-4x combustion
+    #   (819-1459 t vs ~387 t Falcon 9, arXiv 2504.15291) -> embodied ~ combustion x2.5.
+    # Central ~70 (28 x 2.5); high 250 (1600 km + initial-launch + full production).
+    # NOTE: revises the brief's preliminary 185 DOWNWARD on sourcing.
+    source: "derived build-up; production ~2-4x combustion [arXiv 2504.15291]"
+    status: sourced
 
   orbital_embodied_per_kw:
     value: 0.0
