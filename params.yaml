@@ -99,13 +99,13 @@ parameters:
     low: 17.0
     high: 63.0
     unit: kgCO2/kg
-    # DERIVED (traced), Falcon-class to dawn-dusk SSO ~650 km nominal.
-    # Emission factor 3.15 kgCO2/kg kerosene (arXiv 2504.15291).
-    # Method A: ~387 t CO2/launch Falcon 9 to LEO / ~22.8 t payload = ~17;
-    #   x SSO-650km payload penalty (~1.4) -> ~24.
-    # Method B: 63 kgCO2/kg at 1600 km (tether arXiv 2512.09044) scaled down by
-    #   lower delta-V to ~30-40. Central ~28; low 17 (500 km), high 63 (1600 km).
-    source: "derived; 3.15 kgCO2/kg kerosene [arXiv 2504.15291]; cross-check FAA Falcon 9 + tether [arXiv 2512.09044]"
+    # DERIVED, Falcon-class to dawn-dusk SSO ~650 km nominal.
+    # Combustion factor ~3 kgCO2/kg kerosene (RP-1 ~C12H26 stoichiometry).
+    # FAA Falcon 9 Environmental Assessment: ~387 t CO2e/launch; direct combustion
+    #   ~336 t (112 t kerosene x 3). Per-payload ~17-19 kgCO2/kg to LEO
+    #   (Green Launch analysis, FAA-based). Low 17 = LEO; central ~24-28 =
+    #   SSO-650km delta-V penalty (~1.4x); high 63 = 1600 km dawn-dusk SSO (delta-V).
+    source: "FAA SpaceX Falcon Program Environmental Assessment + RP-1 combustion stoichiometry; per-payload ~17-19 kgCO2/kg LEO scaled for SSO altitude"
     status: sourced
 
   launch_factor_embodied_included:
@@ -115,12 +115,13 @@ parameters:
     unit: kgCO2/kg
     # DERIVED build-up (raw CO2, production-inclusive; high-altitude FORCING is a
     # SEPARATE metric axis, not folded in here).
-    # = combustion + production share. LCA per-launch is ~2-4x combustion
-    #   (819-1459 t vs ~387 t Falcon 9, arXiv 2504.15291) -> embodied ~ combustion x2.5.
-    # Central ~70 (28 x 2.5); high 250 (1600 km + initial-launch + full production).
-    # NOTE: revises the brief's preliminary 185 DOWNWARD on sourcing.
-    source: "derived build-up; production ~2-4x combustion [arXiv 2504.15291]"
-    status: sourced
+    # = combustion + manufacturing/propellant-production share. Production-inclusive
+    #   factor estimated at ~2-4x combustion-only (MODELING ASSUMPTION, not measured).
+    #   Embodied launch+reentry as the dominant orbital-DC carbon term:
+    #   Saarland "Dirty Bits" [arXiv 2508.06250] (up to an order of magnitude worse).
+    # Central ~70 (28 x 2.5); high 250 (1600 km + production). Revises brief's 185 down.
+    source: "derived: combustion x estimated production multiplier (~2-4x, ASSUMPTION); embodied-launch evidence from Saarland [arXiv 2508.06250]"
+    status: estimated
 
   forcing_multiplier:
     value: 10.0
