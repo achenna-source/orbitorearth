@@ -48,10 +48,14 @@ parameters:
   pue:
     value: 1.2
     low: 1.1
-    high: 1.5
+    high: 1.6
     unit: dimensionless
-    source: "[A SOURCER]"
-    status: placeholder
+    # Displaced terrestrial facility = modern AI hyperscale DC. Hyperscale fleets
+    # (Google 1.09, Meta/MS/Amazon 1.08-1.15) [Uptime 2025]; global average 1.54
+    # (stagnant 6 y); enterprise 1.5-1.8. Central 1.2 = AI hyperscale (the fair
+    # comparison; AI runs on hyperscale, not legacy). Range 1.1 (best) to 1.6 (avg).
+    source: "Uptime Institute 2025 (global avg 1.54; hyperscale 1.08-1.15; Google 1.09)"
+    status: sourced
 
   hours_per_year:
     value: 8766.0
@@ -62,12 +66,17 @@ parameters:
     status: sourced
 
   utilization:
-    value: 1.0
-    low: 0.6
-    high: 1.0
+    value: 0.7
+    low: 0.5
+    high: 0.9
     unit: dimensionless
-    source: "[A SOURCER]"
-    status: placeholder
+    # Average IT load factor over lifetime (the orbital DC runs continuously too,
+    # so the fair comparison is the cluster capacity factor). Hyperscale server
+    # utilization ~40-60% [Uptime/IEA]; dedicated AI training/inference clusters run
+    # near-continuously, ~0.6-0.9. Central 0.7. NOT 1.0 (100% always = unrealistic,
+    # and biases the break-even low / toward orbit).
+    source: "hyperscale server utilization 40-60% [Uptime 2024-2025]; AI clusters run near-continuously"
+    status: sourced
 
   # --- orbital option ------------------------------------------------------
   system_mass_per_kw:
