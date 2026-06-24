@@ -170,68 +170,80 @@ def break_even_map(params) -> Path:
     base = _base(params)
     masses = np.linspace(10, 150, 240)
 
-    def curve(accounting):
-        f = base[f"launch_factor_{accounting}"]
+    def curve(factor):
         out = []
         for M in masses:
             p = dict(base)
             p["system_mass_per_kw"] = M
-            p["launch_emission_factor"] = f
+            p["launch_emission_factor"] = factor
             out.append(m.break_even_intensity(p))
         return np.array(out)
 
-    I_comb = curve("combustion_only")   # left  (optimistic accounting)
-    I_emb  = curve("embodied_included") # right (pessimistic accounting)
+    f_comb = base["launch_factor_combustion_only"]
+    f_emb = base["launch_factor_embodied_included"]
+    f_force = f_emb * base["forcing_multiplier"]
+    I_comb = curve(f_comb)     # optimist: direct CO2  (~ NTU pole)
+    I_emb = curve(f_emb)       # embodied launch, direct CO2
+    I_force = curve(f_force)   # CO2e + high-altitude forcing  (~ Saarland pole)
 
-    x_max = max(0.8, float(I_emb.max()) * 1.05)
-    fig, ax = plt.subplots(figsize=(9.6, 6.0))
+    C_OPT, C_MID, C_PES = "#1F7A6E", "#B07A1E", "#C0392B"
+    x_lo = 0.02
+    x_hi = max(2.4, float(I_force.max()) * 1.1)
+    fig, ax = plt.subplots(figsize=(10.2, 6.3))
 
-    # Region shading: ground-wins (left of combustion curve),
-    # accounting-dependent (between curves), orbit-wins (right of embodied curve)
-    ax.fill_betweenx(masses, 0, I_comb, color=GROUND, alpha=0.16, zorder=1)
-    ax.fill_betweenx(masses, I_comb, I_emb, color=DEPEND, alpha=0.30, zorder=1)
-    ax.fill_betweenx(masses, I_emb, x_max, color=ORBIT, alpha=0.16, zorder=1)
+    # Region tints: ground wins under any metric | metric-dependent | orbit wins under any metric
+    ax.fill_betweenx(masses, x_lo, np.clip(I_comb, x_lo, x_hi), color=GROUND, alpha=0.10, zorder=1)
+    ax.fill_betweenx(masses, np.clip(I_comb, x_lo, x_hi), np.clip(I_force, x_lo, x_hi),
+                     color=DEPEND, alpha=0.16, zorder=1)
+    ax.fill_betweenx(masses, np.clip(I_force, x_lo, x_hi), x_hi, color=ORBIT, alpha=0.12, zorder=1)
 
-    # Break-even contours
-    ax.plot(I_comb, masses, color=GROUND, linewidth=2.6, zorder=4,
+    # Three break-even contours
+    ax.plot(I_comb, masses, color=C_OPT, linewidth=2.8, zorder=5, solid_capstyle="round")
+    ax.plot(I_emb, masses, color=C_MID, linewidth=2.0, zorder=5, linestyle=(0, (5, 2)),
             solid_capstyle="round")
-    ax.plot(I_emb, masses, color=ORBIT, linewidth=2.6, zorder=4,
-            solid_capstyle="round")
+    ax.plot(I_force, masses, color=C_PES, linewidth=2.8, zorder=5, solid_capstyle="round")
 
     # Reference grids
     for name, g in REF_GRIDS:
-        if g <= x_max:
-            ax.axvline(g, color=REFCOL, linewidth=1.2, linestyle=(0, (4, 3)),
-                       zorder=3)
-            ax.text(g, 152.5, name, rotation=0, ha="center", va="bottom",
-                    fontsize=9.5, color=SUBINK)
+        if x_lo <= g <= x_hi:
+            ax.axvline(g, color=REFCOL, linewidth=1.1, linestyle=(0, (4, 3)), zorder=3)
+            ax.text(g, 148, name + "  ", rotation=90, ha="center", va="top",
+                    fontsize=9, color=SUBINK, zorder=4)
+
+    # Camp tags at the tops of the extreme curves
+    ax.text(float(np.interp(146, masses, I_comb)), 147, "NTU", ha="center", va="bottom",
+            fontsize=10.5, color=C_OPT, fontweight="bold", zorder=6)
+    ax.text(float(np.interp(146, masses, I_force)), 147, "Saarland", ha="center", va="bottom",
+            fontsize=10.5, color=C_PES, fontweight="bold", zorder=6)
 
     # Region labels
-    ax.text(x_max * 0.985, 130, "Orbit wins\n(either accounting)", ha="right",
-            va="top", fontsize=11.5, color="#1F7A6E", fontweight="bold", zorder=5)
-    ax.text(0.030, 100, "Ground wins", ha="center", va="center", rotation=68,
-            rotation_mode="anchor", fontsize=10.5, color="#C0512F",
-            fontweight="bold", zorder=5)
-    band_x = float((np.interp(128, masses, I_comb) + np.interp(128, masses, I_emb)) / 2)
-    ax.text(band_x, 122, "depends on\nthe accounting", ha="center", va="center",
-            fontsize=9.5, color="#9A7B1F", fontweight="bold", zorder=6)
+    ax.text(0.9, 26, "Orbit wins\nunder any metric", ha="center", va="center",
+            fontsize=11, color=C_OPT, fontweight="bold", zorder=6)
+    ax.text(0.030, 112, "Ground\nwins", ha="center", va="center",
+            fontsize=10, color=C_PES, fontweight="bold", zorder=6)
+    ax.text(0.26, 112, "verdict depends on the\nmetric / accounting choice", ha="center",
+            va="center", fontsize=10.5, color="#8A6A12", fontweight="bold", zorder=6)
 
-    ax.set_xlabel("Displaced grid carbon intensity  (kgCO\u2082 / kWh)")
+    ax.set_xscale("log")
+    ax.set_xlabel("Displaced grid carbon intensity  (kgCO\u2082 / kWh, log scale)")
     ax.set_ylabel("Launched system mass  (kg / kW IT)")
-    ax.set_title("When does orbit beat the ground? The accounting choice is the pivot",
-                 loc="left")
-    ax.set_xlim(0, x_max)
+    ax.set_title("The two camps are one model read under different climate metrics", loc="left")
+    ax.set_xlim(x_lo, x_hi)
     ax.set_ylim(10, 150)
+    ax.grid(which="minor", axis="x", color=GRIDCOL, linewidth=0.6)
 
     legend = [
-        Line2D([0], [0], color=GROUND, lw=2.6, label="Break-even, combustion-only (optimistic)"),
-        Line2D([0], [0], color=ORBIT, lw=2.6, label="Break-even, embodied launch (pessimistic)"),
-        Patch(facecolor=DEPEND, alpha=0.30, label="Accounting-dependent zone"),
+        Line2D([0], [0], color=C_OPT, lw=2.8, label="Optimist: direct launch CO\u2082  (\u2248 NTU)"),
+        Line2D([0], [0], color=C_MID, lw=2.0, linestyle=(0, (5, 2)),
+               label="Embodied launch, direct CO\u2082"),
+        Line2D([0], [0], color=C_PES, lw=2.8,
+               label="Pessimist: CO\u2082e + high-altitude forcing  (\u2248 Saarland)"),
     ]
-    ax.legend(handles=legend, loc="upper center", bbox_to_anchor=(0.5, -0.12),
-              ncol=3, columnspacing=1.4, handlelength=1.8)
+    ax.legend(handles=legend, loc="upper center", bbox_to_anchor=(0.5, -0.13),
+              ncol=3, columnspacing=1.4, handlelength=1.9, fontsize=9.5)
 
-    fig.text(0.005, -0.085, STATUS_NOTE, fontsize=8.5, color=SUBINK, ha="left")
+    fig.text(0.005, -0.105, STATUS_NOTE + "  Forcing multiplier x1 (direct CO\u2082) to x50; central x10.",
+             fontsize=8.5, color=SUBINK, ha="left")
 
     out = FIGDIR / "break_even_map.png"
     fig.savefig(out)
