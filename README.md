@@ -1,48 +1,45 @@
 # OrbitOrEarth
 
-Reproducible decision model behind the paper *"When Does AI Compute Belong in
-Orbit?"* It computes the break-even grid carbon intensity above which placing AI
-compute in orbit emits less carbon than running it on the ground, per kW of IT
-load, and propagates input uncertainty to a confidence interval.
+**An open calculator for the orbital-vs-terrestrial carbon break-even of AI compute.**
 
-## The model
+OrbitOrEarth accompanies the paper *"When Does AI Compute Belong in Orbit? A Workload-Conditioned, Multi-Criteria Decision Framework for Orbital Data Centers."* It turns the paper's per-kilowatt lifecycle break-even model into an interactive decision tool and reproduces every figure and number reported in the manuscript.
 
-Per kW, integrated over the GPU lifetime:
+The central finding is that the order-of-magnitude disagreement in the literature over orbital-data-center carbon reduces to a choice of accounting boundary and climate metric. The calculator makes that choice an explicit, movable axis: load the optimist (NTU) or the pessimist (Saarland) preset and watch the verdict flip.
 
-    I*  =  ( M * f_launch + B - D )  /  ( PUE * H * L * U )
+## What's inside
 
-Orbit emits less carbon than the ground baseline exactly when the displaced grid
-intensity exceeds `I*`. All symbols and units are documented in `params.yaml`.
+| File | Purpose |
+|------|---------|
+| `orbitorearth.html` | Self-contained interactive calculator. Open in any browser, no install. |
+| `model.py` | The break-even model. Central equation: `I* = (M*f + B - D) / (PUE*H*L*U)`. |
+| `params.yaml` | All model parameters with value, low/high range, unit, source, and status. |
+| `sweep.py` | Generates the sensitivity sweep, the tornado diagram, and the break-even map (300 DPI). |
+| `test_model.py` | Reproducibility checks: the model reproduces the optimist, pessimist, and reference verdicts. |
+| `requirements.txt` | Python dependencies for regenerating the figures. |
 
-## Integrity
+## Quick start
 
-The default values in `params.yaml` are **placeholders**, reverse-engineered to
-reproduce the preliminary envelope in the scoping brief (self-consistency check
-only). They are **not** sourced. Every parameter marked `status: placeholder`
-must be replaced with a cited value and a justified range before any number is
-reported in the paper. No invented value is ever presented as real.
+**The calculator.** Open `orbitorearth.html` in a web browser. Move the sliders (system mass, hardware lifetime, forcing multiplier, PUE, utilization, grid intensity), toggle the accounting boundary and the climate metric, or load a preset. The orbit-or-ground verdict, the break-even intensity `I*`, the Monte-Carlo interval, and a confidence label all update live.
 
-## Usage
+**The figures.**
 
     pip install -r requirements.txt
-    python model.py --selfcheck   # reproduces the brief table (0.06 / 0.12 / 0.59 / 0.88)
-    python model.py               # break-even + Monte-Carlo + water, current params
-    pytest -q                     # test suite
+    python sweep.py
 
-A `Makefile` wraps these as `make selfcheck`, `make run`, `make test`.
+This writes the paper's figures to `figures/`.
 
-## Files
+## Parameters and provenance
 
-- `params.yaml` - every parameter with value, [low, high] range, unit, source, status.
-- `model.py` - break-even model, water, Monte-Carlo propagation, self-check.
-- `test_model.py` - self-consistency and sanity tests.
+Every parameter in `params.yaml` carries a `source` and a `status` field (`sourced`, `estimated`, or `preliminary`). The forcing multiplier, the orbital-manufacturing term, the avoided-construction term, and the per-kilowatt water term are documented as preliminary. Substitute your own estimates and the verdict updates accordingly.
 
-## Status
+## How to cite
 
-Block 1 of the artifact: model core plus provenance scaffold. Next: source the
-placeholders, then the parameter sweep and the break-even map (two provenance
-contours) plus the tornado sensitivity plot.
+If you use OrbitOrEarth, please cite the archived release:
+
+> [Author], *OrbitOrEarth: A Workload-Conditioned, Multi-Criteria Decision Calculator for Orbital Data Centers*, 2026. Zenodo. DOI: 10.5281/zenodo.XXXXXXX
+
+Replace the DOI above with the one Zenodo assigns, and add the DOI badge here once the release is created.
 
 ## License
 
-TBD (MIT suggested).
+Released under the MIT License. See `LICENSE`.

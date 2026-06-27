@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrbitOrEarth — when does AI compute belong in orbit?</title>
+<style>
+  :root{
+    --bg:#EAEEF2; --card:#FFFFFF; --ink:#14202C; --sub:#5D6E7D; --line:#DBE2E9;
+    --space:#0C1722; --space2:#13212F;
+    --orbit:#0E8C78; --orbit-br:#2FD6BD; --ground:#C8412B; --ground-br:#FB7185;
+    --amber:#C99A22; --amber-br:#F4C152; --ref:#8090A0;
+    --shadow:0 1px 2px rgba(20,32,44,.06),0 8px 24px rgba(20,32,44,.07);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums; font-feature-settings:"tnum"}
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 22px 60px}
+
+  header{display:flex; align-items:baseline; gap:16px; flex-wrap:wrap; margin-bottom:6px}
+  .logo{font-weight:800; letter-spacing:-.02em; font-size:27px}
+  .logo .o{color:var(--orbit)} .logo .e{color:var(--ground)}
+  .tag{color:var(--sub); font-size:15px}
+  .sub-tag{color:var(--sub); font-size:13px; margin:2px 0 22px; max-width:760px}
+  .sub-tag b{color:var(--ink); font-weight:600}
+
+  .grid{display:grid; grid-template-columns:1.35fr 1fr; gap:20px; align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  /* map panel */
+  .map-card{background:var(--space); border-radius:16px; padding:16px 16px 10px;
+    box-shadow:var(--shadow); position:relative; overflow:hidden}
+  .map-card h2{margin:2px 4px 2px; font-size:13px; letter-spacing:.04em;
+    text-transform:uppercase; color:#9FB2C2; font-weight:600}
+  .map-card .mh{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
+  .mh .hint{font-size:11px; color:#6E8194}
+  canvas{width:100%; display:block; border-radius:8px}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; padding:8px 4px 4px; font-size:12px; color:#AFC0CE}
+  .legend .it{display:flex; align-items:center; gap:7px}
+  .legend .sw{width:18px; height:3px; border-radius:2px}
+  .legend .it.active{color:#EAF2F8; font-weight:600}
+
+  /* controls */
+  .panel{background:var(--card); border-radius:16px; box-shadow:var(--shadow); padding:18px}
+  .panel + .panel{margin-top:16px}
+
+  .presets{display:flex; gap:8px; margin-bottom:4px; flex-wrap:wrap}
+  .preset{flex:1; min-width:104px; cursor:pointer; border:1px solid var(--line);
+    background:#fff; border-radius:10px; padding:9px 10px; text-align:left; transition:.15s}
+  .preset:hover{border-color:#bcc8d4; transform:translateY(-1px)}
+  .preset .pt{font-weight:700; font-size:13px}
+  .preset .pd{font-size:11px; color:var(--sub); margin-top:1px}
+  .preset.np{border-left:3px solid var(--orbit)}
+  .preset.sp{border-left:3px solid var(--ground)}
+  .preset.wp{border-left:3px solid var(--amber)}
+
+  .seg{display:flex; gap:6px; margin-top:6px}
+  .seg .opt{flex:1; text-align:center; cursor:pointer; border:1px solid var(--line);
+    border-radius:9px; padding:8px 6px; font-size:13px; font-weight:600; color:var(--sub); transition:.12s}
+  .seg .opt.on{background:var(--ink); color:#fff; border-color:var(--ink)}
+  .row-label{font-size:12px; letter-spacing:.03em; text-transform:uppercase;
+    color:var(--sub); font-weight:600; margin:16px 0 2px}
+
+  .slider{margin-top:13px}
+  .slider .top{display:flex; justify-content:space-between; align-items:baseline}
+  .slider .nm{font-size:13.5px; font-weight:600}
+  .slider .vl{font-size:13.5px; color:var(--ink)}
+  .slider .un{color:var(--sub); font-weight:400; font-size:12px}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:5px;
+    border-radius:4px; background:#E2E8EE; margin:7px 0 0; outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:17px; height:17px;
+    border-radius:50%; background:#fff; border:2px solid var(--orbit); cursor:pointer;
+    box-shadow:0 1px 3px rgba(0,0,0,.18)}
+  input[type=range]::-moz-range-thumb{width:17px; height:17px; border-radius:50%;
+    background:#fff; border:2px solid var(--orbit); cursor:pointer}
+  input.gridrange::-webkit-slider-thumb{border-color:#2C7BE5}
+  input.gridrange::-moz-range-thumb{border-color:#2C7BE5}
+  .range-meta{display:flex; justify-content:space-between; font-size:10.5px; color:#9AA8B5; margin-top:3px}
+
+  /* verdict */
+  .verdict{border-radius:16px; padding:18px 20px; color:#fff; box-shadow:var(--shadow);
+    transition:background .3s}
+  .verdict.orbit{background:linear-gradient(135deg,#0E8C78,#0B6E5E)}
+  .verdict.ground{background:linear-gradient(135deg,#C8412B,#A33421)}
+  .verdict .vk{font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.85}
+  .verdict .vv{font-size:30px; font-weight:800; letter-spacing:-.01em; margin:1px 0 6px; display:flex; align-items:center; gap:10px}
+  .verdict .vexp{font-size:13px; opacity:.95; line-height:1.45}
+  .verdict .stats{display:flex; gap:22px; margin-top:13px; padding-top:12px; border-top:1px solid rgba(255,255,255,.22)}
+  .verdict .stat .sk{font-size:11px; opacity:.8; letter-spacing:.03em}
+  .verdict .stat .sv{font-size:18px; font-weight:700}
+  .conf-tag{font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px;
+    background:rgba(255,255,255,.2); letter-spacing:.03em}
+
+  footer{margin-top:30px; color:var(--sub); font-size:12px; line-height:1.6}
+  footer .note{background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+  footer b{color:var(--ink)}
+  .prelim{color:var(--amber); font-weight:700}
+  a{color:var(--orbit)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><span class="o">Orbit</span>Or<span class="e">Earth</span></div>
+    <div class="tag">When does AI compute belong in orbit?</div>
+  </header>
+  <div class="sub-tag">An open calculator for the orbital-vs-terrestrial carbon break-even. The two camps disagree by an order of magnitude — <b>load the NTU and Saarland presets</b> and watch the verdict flip. Their disagreement is one model read under different accounting and climate-metric choices.</div>
+
+  <div class="grid">
+    <!-- MAP -->
+    <div class="map-card">
+      <div class="mh">
+        <h2>Decision map — break-even grid intensity vs system mass</h2>
+        <span class="hint">log scale · your operating point ●</span>
+      </div>
+      <canvas id="map"></canvas>
+      <div class="legend" id="legend">
+        <div class="it" data-k="comb"><span class="sw" style="background:var(--orbit-br)"></span>Optimist · direct CO₂</div>
+        <div class="it" data-k="emb"><span class="sw" style="background:var(--amber-br)"></span>Embodied launch</div>
+        <div class="it" data-k="force"><span class="sw" style="background:var(--ground-br)"></span>Pessimist · CO₂e + forcing</div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div>
+      <div class="panel">
+        <div class="presets">
+          <button class="preset np" data-preset="ntu">
+            <div class="pt">NTU · optimist</div><div class="pd">direct CO₂, long life</div>
+          </button>
+          <button class="preset sp" data-preset="saar">
+            <div class="pt">Saarland · pessimist</div><div class="pd">embodied + forcing</div>
+          </button>
+          <button class="preset wp" data-preset="src">
+            <div class="pt">This work</div><div class="pd">sourced central</div>
+          </button>
+        </div>
+
+        <div class="row-label">Launch accounting</div>
+        <div class="seg" id="seg-acc">
+          <div class="opt" data-v="combustion_only">Direct CO₂ (combustion)</div>
+          <div class="opt" data-v="embodied_included">Embodied (launch + re-entry)</div>
+        </div>
+
+        <div class="row-label">Climate metric</div>
+        <div class="seg" id="seg-force">
+          <div class="opt" data-v="off">CO₂ only</div>
+          <div class="opt" data-v="on">CO₂e + high-altitude forcing</div>
+        </div>
+
+        <div class="slider" data-p="grid">
+          <div class="top"><span class="nm">Displaced grid intensity</span><span class="vl mono"><span class="num"></span> <span class="un">kgCO₂/kWh</span></span></div>
+          <input type="range" class="gridrange" min="0.02" max="1.2" step="0.005">
+          <div class="range-meta"><span>clean 0.05</span><span>US avg 0.37</span><span>gas 0.50</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row-label" style="margin-top:0">System &amp; model parameters <span style="text-transform:none;font-weight:400;color:var(--sub)">(ranges mirror params.yaml)</span></div>
+        <div class="slider" data-p="mass">
+          <div class="top"><span class="nm">Launched system mass</span><span class="vl mono"><span class="num"></span> <span class="un">kg/kW</span></span></div>
+          <input type="range"><div class="range-meta"><span></span><span></span></div>
+        </div>
+        <div class="slider" data-p="life">
+          <div class="top"><span class="nm">GPU useful lifetime</span><span class="vl mono"><span class="num"></span> <span class="un">years</span></span></div>
+          <input type="range"><div class="range-meta"><span></span><span></span></div>
+        </div>
+        <div class="slider" data-p="forceMult">
+          <div class="top"><span class="nm">Forcing multiplier <span class="un">(CO₂e ÷ CO₂)</span></span><span class="vl mono"><span class="num"></span>×</span></div>
+          <input type="range"><div class="range-meta"><span></span><span></span></div>
+        </div>
+        <div class="slider" data-p="pue">
+          <div class="top"><span class="nm">Terrestrial PUE</span><span class="vl mono"><span class="num"></span></span></div>
+          <input type="range"><div class="range-meta"><span></span><span></span></div>
+        </div>
+        <div class="slider" data-p="util">
+          <div class="top"><span class="nm">Utilization (load factor)</span><span class="vl mono"><span class="num"></span></span></div>
+          <input type="range"><div class="range-meta"><span></span><span></span></div>
+        </div>
+      </div>
+
+      <div class="verdict orbit" id="verdict" style="margin-top:16px">
+        <div class="vk">Carbon verdict at this grid</div>
+        <div class="vv"><span id="vlabel">ORBIT</span><span class="conf-tag" id="conf">high confidence</span></div>
+        <div class="vexp" id="vexp"></div>
+        <div class="stats">
+          <div class="stat"><div class="sk">Break-even I*</div><div class="sv mono" id="istar">—</div></div>
+          <div class="stat"><div class="sk">Monte-Carlo 90%</div><div class="sv mono" id="mc">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="note">
+      <b>How to read it.</b> Orbit emits less carbon than the ground baseline exactly when the displaced grid intensity exceeds the break-even I*. The three curves are the same model under three accounting/metric choices; your operating point (grid × mass) sits relative to the one you select. <span class="prelim">Preliminary:</span> water savings and the born-in-orbit downlink credit are not yet in the carbon break-even, and the second-order orbital-manufacturing and avoided-construction terms are set to zero. Operational carbon in orbit is taken as ~0 (continuous dawn-dusk solar). Companion to the paper <i>“When Does AI Compute Belong in Orbit?”</i> — the model and parameter ranges mirror <span class="mono">params.yaml</span>.
+    </div>
+  </footer>
+</div>
+
+<script>
+// ---- model: single source of truth, mirrors params.yaml ----
+const P = {
+  mass:      {value:80, low:10, high:150, step:1,    unit:"kg/kW"},
+  life:      {value:5,  low:2,  high:7,   step:0.5,  unit:"yr"},
+  pue:       {value:1.2,low:1.1,high:1.6, step:0.01},
+  util:      {value:0.7,low:0.5,high:0.9, step:0.01},
+  forceMult: {value:10, low:1,  high:50,  step:1},
+  f_comb:    {value:28, low:17, high:63},   // launch_factor_combustion_only
+  f_emb:     {value:70, low:40, high:250},  // launch_factor_embodied_included
+  H: 8766
+};
+const REFS = [["clean",0.05],["US avg",0.37],["gas",0.50]];
+
+// live state
+const S = {mass:80, life:5, pue:1.2, util:0.7, forceMult:10, grid:0.37,
+          acc:"embodied_included", force:"off"};
+
+// effective launch factor for an accounting + forcing choice
+function launchFactor(acc, forceOn, fmult, fc, fe){
+  let f = acc==="combustion_only" ? fc : fe;
+  if(forceOn) f *= fmult;        // forcing only meaningfully applies to embodied CO2e
+  return f;
+}
+function iStar(mass, f, pue, life, util){
+  return (mass*f) / (pue*P.H*life*util);   // B=D=0
+}
+
+// triangular sample
+function tri(lo,mode,hi){
+  if(hi<=lo) return lo;
+  const u=Math.random(), c=(mode-lo)/(hi-lo);
+  return u<c ? lo+Math.sqrt(u*(hi-lo)*(mode-lo))
+             : hi-Math.sqrt((1-u)*(hi-lo)*(hi-mode));
+}
+function monteCarlo(n){
+  const out=new Float64Array(n);
+  const fOn = S.force==="on", comb = S.acc==="combustion_only";
+  const fp = comb?P.f_comb:P.f_emb;
+  for(let i=0;i<n;i++){
+    const m=tri(P.mass.low,S.mass,P.mass.high);
+    const l=tri(P.life.low,S.life,P.life.high);
+    const pu=tri(P.pue.low,S.pue,P.pue.high);
+    const ut=tri(P.util.low,S.util,P.util.high);
+    let f=tri(fp.low,fp.value,fp.high);
+    if(fOn) f*=tri(P.forceMult.low,S.forceMult,P.forceMult.high);
+    out[i]=iStar(m,f,pu,l,ut);
+  }
+  out.sort();
+  return {p5:out[Math.floor(0.05*n)], p50:out[Math.floor(0.5*n)], p95:out[Math.floor(0.95*n)]};
+}
+
+// ---- canvas decision map ----
+const cv=document.getElementById("map"), ctx=cv.getContext("2d");
+const XLO=0.02, XHI=3.0, YLO=10, YHI=150;
+let W=0,Hp=0,PAD={l:48,r:16,t:14,b:34};
+function lx(v){return Math.log10(v);}
+function px(v){return PAD.l + (lx(v)-lx(XLO))/(lx(XHI)-lx(XLO))*(W-PAD.l-PAD.r);}
+function py(m){return PAD.t + (1-(m-YLO)/(YHI-YLO))*(Hp-PAD.t-PAD.b);}
+
+function curveFactor(kind){
+  if(kind==="comb") return P.f_comb.value;
+  if(kind==="emb")  return P.f_emb.value;
+  return P.f_emb.value*S.forceMult; // force
+}
+const CURVE_COL={comb:"#2FD6BD",emb:"#F4C152",force:"#FB7185"};
+
+function resize(){
+  const r=cv.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  W=r.width; Hp=Math.max(320, Math.min(440, r.width*0.62));
+  cv.width=W*dpr; cv.height=Hp*dpr; cv.style.height=Hp+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+function draw(){
+  ctx.clearRect(0,0,W,Hp);
+  // grid lines (decades + minor)
+  ctx.font="11px ui-monospace,Menlo,monospace";
+  for(let d=-2; d<=0; d++){
+    const base=Math.pow(10,d);
+    for(let k=1;k<10;k++){
+      const v=base*k; if(v<XLO||v>XHI) continue;
+      const x=px(v);
+      ctx.strokeStyle = k===1?"rgba(255,255,255,.16)":"rgba(255,255,255,.05)";
+      ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,PAD.t); ctx.lineTo(x,Hp-PAD.b); ctx.stroke();
+      if(k===1){ctx.fillStyle="#7E91A2"; ctx.textAlign="center"; ctx.fillText(v.toString(),x,Hp-PAD.b+16);}
+    }
+  }
+  // y ticks
+  ctx.fillStyle="#7E91A2"; ctx.textAlign="right";
+  [10,40,80,120,150].forEach(m=>{
+    const y=py(m); ctx.fillText(m,PAD.l-8,y+3);
+    ctx.strokeStyle="rgba(255,255,255,.05)"; ctx.beginPath(); ctx.moveTo(PAD.l,y); ctx.lineTo(W-PAD.r,y); ctx.stroke();
+  });
+  ctx.fillStyle="#9FB2C2"; ctx.textAlign="center";
+  ctx.fillText("grid carbon intensity  (kgCO₂/kWh)", (PAD.l+W-PAD.r)/2, Hp-4);
+  ctx.save(); ctx.translate(13,(PAD.t+Hp-PAD.b)/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText("system mass (kg/kW)",0,0); ctx.restore();
+
+  // reference grids
+  REFS.forEach(([nm,g])=>{
+    if(g<XLO||g>XHI) return; const x=px(g);
+    ctx.strokeStyle="rgba(180,196,210,.45)"; ctx.setLineDash([4,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,PAD.t); ctx.lineTo(x,Hp-PAD.b); ctx.stroke(); ctx.setLineDash([]);
+    ctx.save(); ctx.fillStyle="#90A2B2"; ctx.translate(x-4,PAD.t+4); ctx.rotate(Math.PI/2);
+    ctx.textAlign="left"; ctx.font="10px ui-sans-serif,system-ui"; ctx.fillText(nm,0,0); ctx.restore();
+  });
+
+  // three curves: I*(mass) = mass*f/(pue*H*life*util)
+  const denom=S.pue*P.H*S.life*S.util;
+  const selKind = S.force==="on" ? "force" : (S.acc==="combustion_only"?"comb":"emb");
+  ["comb","emb","force"].forEach(kind=>{
+    const f=curveFactor(kind), sel=(kind===selKind);
+    ctx.strokeStyle=CURVE_COL[kind]; ctx.lineWidth=sel?3.4:1.8;
+    ctx.globalAlpha=sel?1:0.5; ctx.beginPath();
+    let started=false;
+    for(let m=YLO;m<=YHI;m+=1){
+      const iv=m*f/denom; if(iv<XLO||iv>XHI){started=false;continue;}
+      const x=px(iv),y=py(m);
+      if(!started){ctx.moveTo(x,y);started=true;} else ctx.lineTo(x,y);
+    }
+    ctx.stroke(); ctx.globalAlpha=1;
+  });
+
+  // operating point (grid, mass)
+  if(S.grid>=XLO&&S.grid<=XHI){
+    const x=px(S.grid), y=py(S.mass);
+    ctx.strokeStyle="rgba(120,200,255,.55)"; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(x,PAD.t); ctx.lineTo(x,Hp-PAD.b); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.l,y); ctx.lineTo(W-PAD.r,y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(x,y,7,0,7); ctx.fillStyle="rgba(90,190,255,.25)"; ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,4,0,7); ctx.fillStyle="#CDEBFF"; ctx.fill();
+    ctx.strokeStyle="#5AB6FF"; ctx.lineWidth=1.5; ctx.stroke();
+  }
+}
+
+// ---- UI wiring ----
+function setSeg(id,val){
+  document.querySelectorAll("#"+id+" .opt").forEach(o=>o.classList.toggle("on",o.dataset.v===val));
+}
+function fmt(v,p){return Number(v).toFixed(p);}
+function refreshSlider(key){
+  const box=document.querySelector('.slider[data-p="'+key+'"]'); if(!box) return;
+  const inp=box.querySelector("input"), num=box.querySelector(".num");
+  let val,dec;
+  if(key==="grid"){val=S.grid; dec=3;}
+  else{val=S[key]; dec=(key==="mass")?0:(key==="forceMult")?0:2;}
+  inp.value=val; num.textContent=fmt(val,dec);
+}
+function setupSlider(key){
+  const box=document.querySelector('.slider[data-p="'+key+'"]');
+  const inp=box.querySelector("input"), metas=box.querySelectorAll(".range-meta span");
+  if(key!=="grid"){
+    const cfg=P[key]; inp.min=cfg.low; inp.max=cfg.high; inp.step=cfg.step;
+    if(metas.length===2){metas[0].textContent=cfg.low; metas[1].textContent=cfg.high;}
+  }
+  inp.addEventListener("input",e=>{
+    const v=parseFloat(e.target.value);
+    if(key==="grid") S.grid=v; else S[key]=v;
+    refreshSlider(key); update();
+  });
+  refreshSlider(key);
+}
+["mass","life","pue","util","forceMult","grid"].forEach(setupSlider);
+
+document.querySelectorAll("#seg-acc .opt").forEach(o=>o.addEventListener("click",()=>{
+  S.acc=o.dataset.v; setSeg("seg-acc",S.acc); update();
+}));
+document.querySelectorAll("#seg-force .opt").forEach(o=>o.addEventListener("click",()=>{
+  S.force=o.dataset.v; setSeg("seg-force",S.force); update();
+}));
+
+const PRESETS={
+  ntu:  {mass:80,life:7,pue:1.2,util:0.7,forceMult:10,acc:"combustion_only",force:"off",grid:0.37},
+  saar: {mass:80,life:3,pue:1.2,util:0.7,forceMult:10,acc:"embodied_included",force:"on",grid:0.37},
+  src:  {mass:80,life:5,pue:1.2,util:0.7,forceMult:10,acc:"embodied_included",force:"off",grid:0.37}
+};
+document.querySelectorAll(".preset").forEach(b=>b.addEventListener("click",()=>{
+  Object.assign(S,PRESETS[b.dataset.preset]);
+  ["mass","life","pue","util","forceMult","grid"].forEach(refreshSlider);
+  setSeg("seg-acc",S.acc); setSeg("seg-force",S.force); update();
+}));
+
+function update(){
+  // legend highlight
+  const selKind = S.force==="on" ? "force" : (S.acc==="combustion_only"?"comb":"emb");
+  document.querySelectorAll("#legend .it").forEach(it=>it.classList.toggle("active",it.dataset.k===selKind));
+
+  const fc=P.f_comb.value, fe=P.f_emb.value;
+  const f=launchFactor(S.acc,S.force==="on",S.forceMult,fc,fe);
+  const I=iStar(S.mass,f,S.pue,S.life,S.util);
+  const mc=monteCarlo(4000);
+  const orbitWins = S.grid > I;
+
+  const v=document.getElementById("verdict");
+  v.className="verdict "+(orbitWins?"orbit":"ground");
+  document.getElementById("vlabel").textContent=orbitWins?"ORBIT":"GROUND";
+  document.getElementById("istar").textContent=I.toFixed(3);
+  document.getElementById("mc").textContent="["+mc.p5.toFixed(2)+", "+mc.p95.toFixed(2)+"]";
+
+  // confidence from MC: grid clearly outside the 90% band → high
+  let conf, ratio;
+  if(orbitWins){ratio=(S.grid-mc.p95);} else {ratio=(mc.p5-S.grid);}
+  const inside = (S.grid>mc.p5 && S.grid<mc.p95);
+  conf = inside ? "uncertainty-dominated" : "high confidence";
+  document.getElementById("conf").textContent=conf;
+
+  const accTxt = S.acc==="combustion_only"?"direct launch CO₂":"embodied launch";
+  const metTxt = S.force==="on"?" with high-altitude forcing (CO₂e)":"";
+  const cmp = orbitWins
+    ? "Your grid ("+S.grid.toFixed(2)+") is dirtier than the break-even, so orbit emits less carbon than the ground baseline under "+accTxt+metTxt+"."
+    : "Your grid ("+S.grid.toFixed(2)+") is cleaner than the break-even, so the ground baseline emits less than orbit under "+accTxt+metTxt+".";
+  const uncTxt = inside ? " The grid sits inside the Monte-Carlo interval, so this verdict is sensitive to the input ranges." : "";
+  document.getElementById("vexp").textContent=cmp+uncTxt;
+
+  draw();
+}
+
+// init
+setSeg("seg-acc",S.acc); setSeg("seg-force",S.force);
+window.addEventListener("resize",resize);
+resize(); update();
+</script>
+</body>
+</html>

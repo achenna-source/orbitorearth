@@ -84,8 +84,8 @@ REF_GRIDS = [
     ("Gas",        0.50),
 ]
 
-STATUS_NOTE = ("Levers sourced: launch factor, system mass, GPU lifetime.  "
-               "PUE and utilization still preliminary.")
+STATUS_NOTE = ("All break-even levers sourced (launch, mass, lifetime, PUE, "
+               "utilization, forcing); second-order orbital-mfg / avoided-construction set to 0.")
 
 
 def _base(params):

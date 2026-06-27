@@ -50,11 +50,12 @@ parameters:
     low: 1.1
     high: 1.6
     unit: dimensionless
-    # Displaced terrestrial facility = modern AI hyperscale DC. Hyperscale fleets
-    # (Google 1.09, Meta/MS/Amazon 1.08-1.15) [Uptime 2025]; global average 1.54
-    # (stagnant 6 y); enterprise 1.5-1.8. Central 1.2 = AI hyperscale (the fair
-    # comparison; AI runs on hyperscale, not legacy). Range 1.1 (best) to 1.6 (avg).
-    source: "Uptime Institute 2025 (global avg 1.54; hyperscale 1.08-1.15; Google 1.09)"
+    # Displaced terrestrial facility = modern AI hyperscale DC. Industry-average PUE
+    # 1.56 (Uptime Institute Global Data Center Survey 2024; flat 5 y); capacity-
+    # weighted 1.47; cloud hyperscalers (Google, AWS, Microsoft) claim <=1.2 at some
+    # sites (Meta Prineville ~1.15, top performers ~1.09). Central 1.2 = AI hyperscale
+    # (the fair comparison; AI runs on hyperscale, not legacy). Range 1.1 to 1.6 (avg).
+    source: "Uptime Institute Global Data Center Survey 2024 (industry avg 1.56; hyperscale claims <=1.2; top ~1.09)"
     status: sourced
 
   hours_per_year:
@@ -129,16 +130,18 @@ parameters:
     high: 50.0
     unit: dimensionless
     # THE CLIMATE-METRIC AXIS of C1 (CO2e / direct-CO2 for the launch).
-    # Launch radiative forcing is dominated by black carbon (70%) and alumina
-    # (28%); CO2 and H2O are minor (Ross & Sheaffer 2014, Earth's Future).
-    # Stratospheric BC forcing efficiency ~500x surface sources [Ryan 2022;
-    # Maloney 2022, JGR Atmospheres].
-    # Central ~10 (derived, GWP-100): BC index ~40 g/kg kerosene x BC GWP-100 ~900
-    #   / CO2 3.15 kg/kg ~ 11. Low 1 = direct-CO2 metric (optimist boundary).
-    #   High ~50 = instantaneous-forcing view (CO2 ~2% of total launch forcing).
+    # Launch radiative forcing is dominated by black carbon (~70%) and alumina
+    # (~28%); CO2 and H2O are minor. Ross & Sheaffer 2014 (Earth's Future 2:177-196,
+    #   doi 10.1002/2013EF000160): instantaneous RF 16+/-8 mW/m^2 for a mixed fleet,
+    #   BC-dominated, CO2 not a significant RF source. Ryan et al. 2022 (Earth's
+    #   Future, doi 10.1029/2021EF002612): global-mean +3.9 mW/m^2, mostly BC.
+    #   Ross et al. 2010 (GRL 37 L24810, doi 10.1029/2010GL044548).
+    # Central ~10 (derived, GWP-100): BC index ~30-50 g/kg kerosene x BC GWP-100 ~900
+    #   / CO2 ~3 kg/kg ~ 10. Low 1 = direct-CO2 metric (optimist boundary).
+    #   High ~50 = instantaneous-forcing view (CO2 a few % of total launch forcing).
     # The wide range is the point: the verdict is sensitive to a contested,
     # unsettled metric choice -- this is why the two camps disagree.
-    source: "Ross & Sheaffer 2014 (BC 70% + Al2O3 28%, CO2 minor); BC ~500x efficiency [Ryan 2022; Maloney 2022]; GWP-100 build-up"
+    source: "Ross & Sheaffer 2014 [doi 10.1002/2013EF000160] (BC 70% + Al2O3 28%, CO2 minor, 16+/-8 mW/m2); Ryan 2022 [doi 10.1029/2021EF002612] (+3.9 mW/m2, BC-dominated); Ross 2010 [doi 10.1029/2010GL044548]; GWP-100 build-up"
     status: sourced
 
   orbital_embodied_per_kw:

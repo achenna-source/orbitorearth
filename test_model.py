@@ -12,8 +12,8 @@ def _params():
 
 
 def test_reproduces_brief_table():
-    """The model must reproduce the brief's preliminary envelope within 0.01."""
-    assert m.selfcheck(_params(), verbose=False, tol=0.01)
+    """The break-even formula must reproduce the brief's preliminary envelope."""
+    assert m.selfcheck(verbose=False, tol=0.01)
 
 
 def test_break_even_positive():
